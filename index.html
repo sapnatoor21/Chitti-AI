@@ -1,0 +1,126 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.3/dist/tailwind.min.css" rel="stylesheet">
+  <title> Chitti AI </title>
+</head>
+<body class="bg-gray-100 text-gray-900">
+  <header class="bg-indigo-600 p-4 text-white text-center">
+    <h1 class="text-lg font-bold"> Chitti AI </h1>
+  </header>
+
+  <main class="flex justify-center mt-4">
+    <div class="px-2 w-full max-w-2xl">
+      <div id="chatbox" class="flex flex-col items-start bg-white shadow-md rounded p-4 mb-4 h-80 overflow-y-scroll">
+        <div class="text-sm text-gray-600 mb-4">
+          <strong></strong> "Hello! I’m  Chitti AI, How can I assist you?"
+        </div>
+      </div>
+      <div>
+        <div class="flex flex-row items-center mb-2">
+          <input class="shadow flex-grow rounded p-2 text-gray-900 border-gray-300 focus:outline-none" id="messageInput" type="text" placeholder="Type your message here...">
+          <button class="bg-indigo-600 rounded py-2 px-4 text-white font-bold ml-2" id="sendButton">Send</button>
+        </div>
+        <div class="flex flex-row items-center mb-2">
+          <button class="bg-red-600 rounded py-2 px-4 text-white font-bold ml-2" id="clearButton">Clear Chat</button>
+          <button class="bg-blue-600 rounded py-2 px-4 text-white font-bold ml-2" id="addChatButton">New Chat</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const chatbox = document.getElementById("chatbox");
+    const messageInput = document.getElementById("messageInput");
+    const sendButton = document.getElementById("sendButton");
+    const clearButton = document.getElementById("clearButton");
+    const addChatButton = document.getElementById("addChatButton");
+    const chatId = crypto.randomUUID();
+
+    let receiving = false;
+    const systemPrompt = "You embody the persona of the AI Assistant - friendly, intelligent, and engaging in your responses.";
+
+    function createMessageElement(text, alignment) {
+      const messageElement = document.createElement("div");
+      messageElement.className = `inline-block my-2 p-2 rounded border ${
+        alignment === "left" ? "bg-gray-200 self-start" : "bg-indigo-100 self-end"
+      }`;
+      messageElement.textContent = text;
+      return messageElement;
+    }
+
+    function connectWebSocket(message) {
+      receiving = true;
+      const url = "wss://backend.buildpicoapps.com/api/chatbot/chat";
+      const websocket = new WebSocket(url);
+
+      websocket.addEventListener("open", () => {
+        websocket.send(
+          JSON.stringify({
+            chatId: chatId,
+            appId: "assume-head",
+            systemPrompt: systemPrompt,
+            message: message,
+          })
+        );
+      });
+
+      const messageElement = createMessageElement("", "left");
+      chatbox.appendChild(messageElement);
+
+      websocket.onmessage = (event) => {
+        messageElement.innerText += event.data;
+        chatbox.scrollTop = chatbox.scrollHeight;
+      };
+
+      websocket.onclose = (event) => {
+        if (event.code === 1000) {
+          receiving = false;
+        } else {
+          messageElement.textContent += "Error getting response from server. Refresh the page and try again.";
+          chatbox.scrollTop = chatbox.scrollHeight;
+          receiving = false;
+        }
+      };
+    }
+
+    sendButton.addEventListener("click", () => {
+      if (!receiving && messageInput.value.trim() !== "") {
+        const messageText = messageInput.value.trim();
+        messageInput.value = "";
+        const messageElement = createMessageElement(messageText, "right");
+        chatbox.appendChild(messageElement);
+        chatbox.scrollTop = chatbox.scrollHeight;
+
+        connectWebSocket(messageText);
+      }
+    });
+
+    messageInput.addEventListener("keydown", (event) => {
+      if (
+        event.key === "Enter" &&
+        !receiving &&
+        messageInput.value.trim() !== ""
+      ) {
+        event.preventDefault();
+        sendButton.click();
+      }
+    });
+
+    clearButton.addEventListener("click", () => {
+      chatbox.innerHTML = "";
+      const initialMessage = createMessageElement("AI Assistant: \"Hello! I’m your AI assistant, here to help with any questions you have. Whether you need coding help, research insights, or just a friendly chat, I’ve got you covered! How can I assist you today?\"", "left");
+      chatbox.appendChild(initialMessage);
+    });
+
+    addChatButton.addEventListener("click", () => {
+      const testMessage = createMessageElement("This is a test message.", "right");
+      chatbox.appendChild(testMessage);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    });
+  </script>
+</body>
+</html>
